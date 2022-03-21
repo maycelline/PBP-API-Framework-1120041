@@ -19,6 +19,7 @@ func main() { //mendefinisikan routes yang ada di program kita
 	e.GET("/users", controllers.GetAllUser)
 	e.POST("/users", controllers.AddUser)
 	e.PUT("/users/:id", controllers.UpdateUser)
+	e.DELETE("/users/:id", controllers.DeleteUser)
 	e.Logger.Fatal(e.Start(":8000"))
 
 }

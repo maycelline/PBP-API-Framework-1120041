@@ -109,3 +109,29 @@ func UpdateUser(c echo.Context) error {
 		return c.JSON(http.StatusOK, response)
 	}
 }
+
+func DeleteUser(c echo.Context) error {
+	db := Connect()
+	defer db.Close()
+
+	userid := c.Param("id")
+	var response Response
+
+	result, err := db.Exec("DELETE FROM users WHERE id = ?",
+		userid,
+	)
+
+	if err != nil {
+		log.Println(err)
+		response.Message = "Not success"
+		return c.JSON(http.StatusInternalServerError, response)
+	} else {
+		number, _ := result.RowsAffected()
+		if number == 0 {
+			response.Message = "User with id " + userid + " not found"
+			return c.JSON(http.StatusOK, response)
+		}
+		response.Message = "User Deleted!"
+		return c.JSON(http.StatusOK, response)
+	}
+}
