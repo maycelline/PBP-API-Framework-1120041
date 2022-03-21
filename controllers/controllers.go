@@ -122,7 +122,7 @@ func UpdateUser(c echo.Context) error {
 	} else {
 		number, _ := result.RowsAffected()
 		if number == 0 {
-			return c.JSON(http.StatusOK, "User with id "+userid+" not found or you made no changes at all")
+			return c.JSON(http.StatusNotFound, "User with id "+userid+" not found or you made no changes at all")
 		}
 		return c.JSON(http.StatusOK, "User Updated!")
 	}
@@ -144,7 +144,7 @@ func DeleteUser(c echo.Context) error {
 	} else {
 		number, _ := result.RowsAffected()
 		if number == 0 {
-			return c.JSON(http.StatusOK, "User with id "+userid+" not found")
+			return c.JSON(http.StatusNotFound, "User with id "+userid+" not found")
 		}
 		return c.JSON(http.StatusOK, "User Deleted!")
 	}
