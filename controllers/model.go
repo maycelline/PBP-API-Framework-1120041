@@ -1,17 +1,14 @@
 package controllers
 
 type User struct {
-	Id      int    `json:"id"`
-	Name    string `json:"name"`
-	Address string `json:"address"`
-	Hobby   string `json:"hobby"`
+	Id       int    `json:"id"`
+	Username string `json:"username"`
+	Address  string `json:"address"`
+	Hobby    string `json:"hobby"`
+	Type     int    `json:"usertype"`
 }
 
 type UsersResponse struct {
-	Message string `json:"id"`
-	Data    []User `json:"users"`
-}
-
-type Response struct {
 	Message string `json:"message"`
+	Data    []User `json:"users"`
 }

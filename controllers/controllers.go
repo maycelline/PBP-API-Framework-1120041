@@ -7,69 +7,92 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func GetAllUser(c echo.Context) error {
-
-	var user User
-	var users []User
-	var userResponse UsersResponse
-	var response Response
-
+func Login(c echo.Context) error {
 	db := Connect()
 	defer db.Close()
 
-	sqlStatement := "SELECT * FROM users"
+	username := c.FormValue("username")
+	password := c.FormValue("password")
+
+	query := "SELECT id, username, address, hobby, type FROM users WHERE username = '" + username + "' AND password = '" + password + "'"
+	row := db.QueryRow(query)
+
+	var user User
+
+	if err := row.Scan(&user.Id, &user.Username, &user.Address, &user.Hobby, &user.Type); err != nil {
+		log.Println(err)
+		return c.JSON(http.StatusUnauthorized, "Login failed. Please try again")
+	} else {
+		generateToken(c, user.Id, user.Username, user.Type)
+		return c.JSON(http.StatusOK, "Login success!")
+	}
+}
+
+func GetAllUser(c echo.Context) error {
+	db := Connect()
+	defer db.Close()
+
+	var user User
+	var users []User
+	var response UsersResponse
+
+	sqlStatement := "SELECT id, username, address, hobby, type FROM users"
 
 	rows, err := db.Query(sqlStatement)
 
 	if err != nil {
-		response.Message = "Error with Query"
-		return c.JSON(http.StatusInternalServerError, response)
+		return c.JSON(http.StatusInternalServerError, "Error Query")
 	}
 
 	for rows.Next() {
-		err = rows.Scan(&user.Id, &user.Name, &user.Address, &user.Hobby)
+		err = rows.Scan(&user.Id, &user.Username, &user.Address, &user.Hobby, &user.Type)
 
 		if err != nil {
-			response.Message = "Error with Data"
-			return c.JSON(http.StatusInternalServerError, response)
+			return c.JSON(http.StatusInternalServerError, "Error Data")
 		}
 
 		users = append(users, user)
 	}
 
-	userResponse.Message = "Success"
-	userResponse.Data = users
+	if len(users) <= 0 {
+		return c.JSON(http.StatusNotFound, "No Data Available")
+	} else {
+		response.Message = "success"
+		response.Data = users
+		return c.JSON(http.StatusOK, response)
+	}
+}
 
-	return c.JSON(http.StatusOK, userResponse)
+func Logout(c echo.Context) error {
+	ResetUserToken(c)
+	return c.JSON(http.StatusOK, "Successfully Logout!")
 }
 
 func AddUser(c echo.Context) error {
 	db := Connect()
 	defer db.Close()
 
-	name := c.FormValue("name")
+	username := c.FormValue("username")
 	address := c.FormValue("address")
 	hobby := c.FormValue("hobby")
-	var response Response
+	password := c.FormValue("password")
 
-	if len(name) == 0 || len(address) == 0 || len(hobby) == 0 {
-		response.Message = "Please Input All Fields"
-		return c.JSON(http.StatusBadRequest, response)
+	if len(username) == 0 || len(address) == 0 || len(hobby) == 0 || len(password) == 0 {
+		return c.JSON(http.StatusBadRequest, "Please input all fields!")
 	}
 
-	_, err := db.Exec("INSERT INTO users(name, address, hobby) VALUES(?,?,?)",
-		name,
+	_, err := db.Exec("INSERT INTO users(username, address, hobby, password, type) VALUES(?,?,?,?,0)",
+		username,
 		address,
 		hobby,
+		password,
 	)
 
 	if err != nil {
-		log.Println()
-		response.Message = "Not success"
-		return c.JSON(http.StatusInternalServerError, response)
+		log.Println(err)
+		return c.JSON(http.StatusInternalServerError, "Can not inser new user")
 	} else {
-		response.Message = "New user inserted!"
-		return c.JSON(http.StatusCreated, response)
+		return c.JSON(http.StatusCreated, "New user inserted!")
 	}
 }
 
@@ -78,18 +101,16 @@ func UpdateUser(c echo.Context) error {
 	defer db.Close()
 
 	userid := c.Param("id")
-	name := c.FormValue("name")
+	username := c.FormValue("username")
 	address := c.FormValue("address")
 	hobby := c.FormValue("hobby")
-	var response Response
 
-	if len(name) == 0 || len(address) == 0 || len(hobby) == 0 {
-		response.Message = "Please Input All Fields"
-		return c.JSON(http.StatusBadRequest, response)
+	if len(username) == 0 || len(address) == 0 || len(hobby) == 0 {
+		return c.JSON(http.StatusBadRequest, "Please input all fields")
 	}
 
-	result, err := db.Exec("UPDATE users SET name = ?, address = ?, hobby = ? WHERE id = ?",
-		name,
+	result, err := db.Exec("UPDATE users SET username = ?, address = ?, hobby = ? WHERE id = ?",
+		username,
 		address,
 		hobby,
 		userid,
@@ -97,16 +118,13 @@ func UpdateUser(c echo.Context) error {
 
 	if err != nil {
 		log.Println(err)
-		response.Message = "Not success"
-		return c.JSON(http.StatusInternalServerError, response)
+		return c.JSON(http.StatusInternalServerError, "Can not update user")
 	} else {
 		number, _ := result.RowsAffected()
 		if number == 0 {
-			response.Message = "User with id " + userid + " not found or you made no changes at all"
-			return c.JSON(http.StatusOK, response)
+			return c.JSON(http.StatusOK, "User with id "+userid+" not found or you made no changes at all")
 		}
-		response.Message = "User Updated!"
-		return c.JSON(http.StatusOK, response)
+		return c.JSON(http.StatusOK, "User Updated!")
 	}
 }
 
@@ -115,7 +133,6 @@ func DeleteUser(c echo.Context) error {
 	defer db.Close()
 
 	userid := c.Param("id")
-	var response Response
 
 	result, err := db.Exec("DELETE FROM users WHERE id = ?",
 		userid,
@@ -123,15 +140,12 @@ func DeleteUser(c echo.Context) error {
 
 	if err != nil {
 		log.Println(err)
-		response.Message = "Not success"
-		return c.JSON(http.StatusInternalServerError, response)
+		return c.JSON(http.StatusInternalServerError, "Not success")
 	} else {
 		number, _ := result.RowsAffected()
 		if number == 0 {
-			response.Message = "User with id " + userid + " not found"
-			return c.JSON(http.StatusOK, response)
+			return c.JSON(http.StatusOK, "User with id "+userid+" not found")
 		}
-		response.Message = "User Deleted!"
-		return c.JSON(http.StatusOK, response)
+		return c.JSON(http.StatusOK, "User Deleted!")
 	}
 }
